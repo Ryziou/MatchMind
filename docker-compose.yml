@@ -1,0 +1,38 @@
+services:
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - '8000:8000'
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    env_file:
+      - .env
+    environment:
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      PORT: 3001
+      NODE_ENV: production
+    depends_on:
+      - chroma
+    ports:
+      - '3001:3001'
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    depends_on:
+      - server
+    ports:
+      - '8080:80'
+    restart: unless-stopped
+
+volumes:
+  chroma_data:

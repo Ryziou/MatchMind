@@ -1,0 +1,19 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    volumes:
+      - ./server/src:/app/server/src
+    command: npm run dev --workspace=@matchmind/server
+    environment:
+      NODE_ENV: development
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    volumes:
+      - ./client/src:/app/client/src
+    ports:
+      - '5173:80'

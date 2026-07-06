@@ -1,0 +1,54 @@
+:root {
+  --mm-bg: #f4f6fb;
+  --mm-surface: #ffffff;
+  --mm-text: #1e293b;
+  --mm-text-secondary: #64748b;
+  --mm-accent: #2563eb;
+  --mm-border: #e2e8f0;
+}
+
+[data-theme='dark'] {
+  --mm-bg: #0f172a;
+  --mm-surface: #1e293b;
+  --mm-text: #f1f5f9;
+  --mm-text-secondary: #94a3b8;
+  --mm-accent: #60a5fa;
+  --mm-border: #334155;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: var(--mm-bg);
+  color: var(--mm-text);
+}
+
+.page {
+  min-height: 100vh;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.text-secondary {
+  color: var(--mm-text-secondary);
+}
+
+.p-card {
+  background: var(--mm-surface) !important;
+  color: var(--mm-text) !important;
+  border: 1px solid var(--mm-border);
+}
+
+.p-card .p-card-title {
+  color: var(--mm-text) !important;
+}
+
+.p-card .p-card-subtitle {
+  color: var(--mm-text-secondary) !important;
+}
