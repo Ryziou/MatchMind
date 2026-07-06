@@ -9,7 +9,8 @@
     }
   },
   "mounts": [
-    "source=matchmind-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+    "source=matchmind-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/node/.ssh,readonly,type=bind,consistency=cached"
   ],
   "forwardPorts": [3001, 5173, 8000, 8080],
   "portsAttributes": {
@@ -31,9 +32,7 @@
       "settings": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "eslint.workingDirectories": [
-          { "mode": "auto" }
-        ]
+        "eslint.workingDirectories": [{ "mode": "auto" }]
       }
     }
   }
