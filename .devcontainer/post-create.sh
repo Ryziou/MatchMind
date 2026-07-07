@@ -9,11 +9,10 @@ fi
 npm install
 npm run build --workspace=@matchmind/shared
 
-echo "Dev container ready."
+bash .devcontainer/setup-git-ssh.sh
+
 echo ""
-echo "GitHub (for push/pull; no SSH keys mounted into this container):"
-echo "  gh auth login"
-echo "  gh auth setup-git"
+echo "Dev container ready."
 echo ""
 echo "App:"
 echo "  Set GEMINI_API_KEY in .env, then run:"
