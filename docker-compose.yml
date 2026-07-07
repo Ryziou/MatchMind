@@ -22,6 +22,8 @@ services:
       - chroma
     ports:
       - '3001:3001'
+    volumes:
+      - uploads_data:/app/uploads
     restart: unless-stopped
 
   client:
@@ -36,3 +38,4 @@ services:
 
 volumes:
   chroma_data:
+  uploads_data:

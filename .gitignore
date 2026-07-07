@@ -9,3 +9,5 @@ uploads/
 .chroma/
 coverage/
 .vite/
+.cursor/
+tests/

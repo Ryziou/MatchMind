@@ -2,28 +2,38 @@
 
 ## Project Overview
 
-MatchMind is an AI resume and job intelligence platform. The goal is to let users upload a CV, paste a job description, and receive a structured analysis of how well their experience matches the role, powered by a real Retrieval-Augmented Generation (RAG) pipeline.
+MatchMind is an AI resume and job intelligence platform. Users upload a CV, paste a job description, and receive a structured analysis of how well their experience matches the role. The analysis is powered by a real Retrieval-Augmented Generation (RAG) pipeline: the LLM never receives the full CV, only semantically retrieved chunks.
 
-The project is under active development. Milestone 0 establishes the monorepo, Docker environment, and core service wiring. CV upload, RAG analysis, and chat are planned for upcoming milestones.
+The project is under active development. **Milestone 1** is complete: CV upload, parsing, section-aware chunking, Gemini embeddings, and ChromaDB storage. Job description analysis, the results UI, and chat mode are planned for upcoming milestones.
+
+## Why I Built This
+
+I wanted to create a portfolio project that demonstrates my use of Retrieval-Augmented Generation (RAG) to gain hands-on experience with modern AI engineering, enabling users to query uploaded documents using LLMs and vector search.
 
 ## Features
 
-Current (Milestone 0):
+**Current (Milestone 0 + 1):**
 
-- Monorepo with separate `client`, `server`, and shared packages
+- Monorepo with `client`, `server`, and `packages/shared`
 - Docker Compose stack (client, server, ChromaDB)
-- Dashboard placeholder with live server and ChromaDB status
-- Health check API at `/api/health`
-- Dark and light theme toggle
-- Typed environment configuration and Gemini provider skeleton
-- Dev Container with Node 20, Docker-in-Docker, and preconfigured editor extensions
+- Dashboard with live server and ChromaDB status, dark/light theme
+- Typed environment configuration (Zod-validated)
+- Gemini provider for embeddings (`gemini-embedding-001`) and generation
+- CV upload via `POST /api/sessions` (PDF and DOCX, size-validated)
+- Section-aware chunking with metadata (`section`, `sourceFile`, `chunkIndex`)
+- Session-scoped Chroma collections (`cv_{sessionId}`)
+- Debug retrieval endpoint to verify stored embeddings
+- Session delete to remove uploaded files and vector data
+- Dev Container with Node 20 and Docker-in-Docker
 
-Planned:
+**Planned (Milestone 2 onward):**
 
-- CV upload (PDF/DOCX) with semantic chunking and embedding
-- Job description analysis via Top-K retrieval (not full CV passthrough)
-- Structured match scores, strengths, gaps, and interview questions
-- Post-analysis chat using the existing vector store
+- Job description analysis via Top-K retrieval (`POST /api/sessions/:id/analyze`)
+- Structured match scores, strengths, gaps, CV improvements, cover letter, interview questions
+- SSE progress events for real pipeline stages
+- Full dashboard upload flow and results UI
+- Post-analysis chat reusing the session vector store
+- Production hardening, logging, and tests
 
 ## Tech Stack
 
@@ -33,6 +43,7 @@ Planned:
 | Backend | Node.js, Express, TypeScript |
 | AI | Google Gemini (`@google/generative-ai`) |
 | Vector DB | ChromaDB |
+| Document parsing | `pdf-parse`, `mammoth` |
 | Shared contracts | Zod |
 | Tooling | ESLint, Prettier, Docker Compose, Dev Containers |
 
@@ -40,14 +51,58 @@ Planned:
 
 ```
 MatchMind/
-├── client/            React frontend
-├── server/            Express API
-├── packages/shared/   Zod schemas and shared types
-├── docker/            Dockerfiles and nginx config
-└── .devcontainer/     Dev Container config (Node 20 + Docker-in-Docker)
+├── client/                 React frontend
+├── server/                 Express API
+│   └── src/
+│       ├── ai/providers/   Gemini embedding + LLM interfaces
+│       ├── db/chroma/      Chroma client and collection helpers
+│       ├── rag/
+│       │   ├── chunking/   Section-aware text splitting
+│       │   └── ingestion/  PDF/DOCX parsing and ingest pipeline
+│       ├── services/       Session lifecycle orchestration
+│       └── routes/         HTTP route definitions
+├── packages/shared/        Zod schemas and shared TypeScript types
+├── docker/                 Dockerfiles and nginx config
+├── scripts/                Smoke tests and utilities
+└── .devcontainer/          Dev Container config
 ```
 
-The client talks to the server over REST. The server connects to ChromaDB for vector storage (wired in Milestone 0, used from Milestone 1 onward). Shared Zod schemas in `packages/shared` keep API contracts consistent between frontend and backend.
+**Ingestion flow (Milestone 1):**
+
+1. Client uploads a CV to `POST /api/sessions`
+2. Server parses PDF or DOCX, chunks by CV section, embeds each chunk with Gemini
+3. Chunks and embeddings are stored in a session-scoped Chroma collection
+4. Retrieval queries embed the search text and return Top-K similar chunks
+
+Shared Zod schemas in `packages/shared` keep API contracts consistent between frontend and backend.
+
+## API (Milestone 1)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/health` | Server and ChromaDB health check |
+| `POST` | `/api/sessions` | Upload CV (multipart field: `cv`), ingest into Chroma |
+| `GET` | `/api/sessions/:id/debug/query?q=...` | Test semantic retrieval for a session |
+| `DELETE` | `/api/sessions/:id` | Delete session uploads and Chroma collection |
+
+Example upload:
+
+```bash
+curl -X POST http://localhost:3001/api/sessions \
+  -F "cv=@/path/to/your-cv.pdf;type=application/pdf"
+```
+
+Example retrieval:
+
+```bash
+curl "http://localhost:3001/api/sessions/YOUR_SESSION_ID/debug/query?q=cloud%20experience"
+```
+
+Delete a session when finished testing:
+
+```bash
+curl -X DELETE http://localhost:3001/api/sessions/YOUR_SESSION_ID
+```
 
 ## Running Locally
 
@@ -72,23 +127,16 @@ cp .env.example .env
 | `CHROMA_HOST` | No | ChromaDB host (default: `chroma` in Docker, `localhost` locally) |
 | `CHROMA_PORT` | No | ChromaDB port (default: `8000`) |
 | `PORT` | No | Server port (default: `3001`) |
+| `RAG_TOP_K` | No | Top-K chunks for retrieval (default: `8`) |
+| `MAX_UPLOAD_MB` | No | Max CV upload size in MB (default: `5`) |
 
 ### Option A: Dev Container (recommended)
 
-The Dev Container includes Node 20, npm, Docker CLI, and Docker Compose via Docker-in-Docker. Once inside, `docker compose` works without relying on WSL Docker integration.
+The Dev Container includes Node 20, npm, Docker CLI, and Docker Compose.
 
-**Requirements:** Docker Desktop must be running on Windows.
-
-**Important:** Open the `MatchMind` folder itself as your workspace, not the parent `code/` folder. The config lives at `MatchMind/.devcontainer/devcontainer.json` and Cursor only detects it when `MatchMind` is the root folder you opened.
-
-**Cursor extension:** Install **Dev Containers** by Anysphere (`anysphere.remote-containers`). Do not use the Microsoft Remote Containers extension; it is incompatible with Cursor. After installing, reload Cursor.
-
-1. Open the `MatchMind` folder in Cursor (`File → Open Folder → .../MatchMind`).
-2. When prompted, click **Reopen in Container**. If no prompt appears, open the command palette (`Ctrl+Shift+P`) and search for **Reopen in Container**.
-3. Alternatively, click the **Remote** icon in the bottom-left corner and choose **Reopen in Container**.
-4. Wait for the container to build and `post-create` to finish (`npm install`, shared package build).
-5. Add your `GEMINI_API_KEY` to `.env` if you have not already.
-6. Inside the container terminal:
+1. Open the project in Cursor and **Reopen in Container**.
+2. Add your `GEMINI_API_KEY` to `.env`.
+3. Inside the container terminal:
 
 ```bash
 docker compose up --build
@@ -105,8 +153,6 @@ docker compose up chroma -d
 npm run dev --workspace=@matchmind/server   # terminal 1
 npm run dev --workspace=@matchmind/client   # terminal 2
 ```
-
-**If the Dev Container fails to start from WSL** with "docker could not be found", Docker Desktop WSL integration is not enabled for your distro. Either enable it under **Docker Desktop → Settings → Resources → WSL Integration → Ubuntu**, or open the project from Windows Cursor (not WSL remote) so Docker Desktop is used directly.
 
 ### Option B: Docker Compose on the host (full stack)
 
@@ -147,18 +193,24 @@ Open [http://localhost:5173](http://localhost:5173). The dashboard shows whether
 | `npm run format` | Format code with Prettier |
 | `docker compose up --build` | Run full stack in Docker |
 | `docker compose up chroma -d` | Start ChromaDB only |
+| `bash scripts/smoke-test-m1.sh` | Smoke test upload and retrieval |
+| `docker compose down -v` | Stop stack and wipe upload/Chroma volumes |
 
-## Git: what to commit
+## Data and privacy
 
-**Commit these** (safe, shared project config):
+When you upload a CV via the API:
 
-- `.devcontainer/` (Dev Container setup; no secrets)
-- `.vscode/extensions.json` (recommended extensions for the team)
-- Source code, `docker-compose.yml`, `.env.example`, etc.
+- The original file is stored in the Docker volume `uploads_data` (not in git)
+- Chunk text and embeddings are stored in the Chroma Docker volume `chroma_data`
+- Text is sent to the Gemini API for embedding during ingestion
 
-**Do not commit** (already in `.gitignore`):
+To remove a single session: `DELETE /api/sessions/:id`
 
-- `.env` (contains your `GEMINI_API_KEY`)
-- `node_modules/`, `dist/`, build output, upload caches
+To wipe all uploaded data and vectors: `docker compose down -v`
 
-`.devcontainer` is meant to be pushed. It lets you (and anyone reviewing the repo) reopen the same environment on another machine. It contains no API keys, only tooling config.
+## Future Improvements
+
+- Milestone 2: RAG analysis endpoint with structured JSON output, Zod validation, retry logic, SSE progress
+- Milestone 3: Dashboard upload UI, results cards, real progress stepper
+- Milestone 4: Chat mode reusing session vector store
+- Milestone 5: Production Docker images, logging, integration tests, OpenAI provider stub

@@ -1,9 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 import type { ZodSchema } from 'zod';
 import type { Env } from '../../config/env.js';
 import type { AIProviders, LLMResult, LLMUsage } from './types.js';
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'gemini-embedding-001';
 const GENERATION_MODEL = 'gemini-2.0-flash';
 
 export class GeminiProvider implements AIProviders {
@@ -22,7 +22,10 @@ export class GeminiProvider implements AIProviders {
     const embeddings: number[][] = [];
 
     for (const text of texts) {
-      const result = await model.embedContent(text);
+      const result = await model.embedContent({
+        content: { role: 'user', parts: [{ text }] },
+        taskType: TaskType.RETRIEVAL_DOCUMENT,
+      });
       const values = result.embedding.values;
 
       if (!values || values.length === 0) {
@@ -36,11 +39,18 @@ export class GeminiProvider implements AIProviders {
   }
 
   async embedQuery(text: string): Promise<number[]> {
-    const [embedding] = await this.embedDocuments([text]);
-    if (!embedding) {
+    const model = this.client.getGenerativeModel({ model: EMBEDDING_MODEL });
+    const result = await model.embedContent({
+      content: { role: 'user', parts: [{ text }] },
+      taskType: TaskType.RETRIEVAL_QUERY,
+    });
+    const values = result.embedding.values;
+
+    if (!values || values.length === 0) {
       throw new Error('Failed to embed query');
     }
-    return embedding;
+
+    return values;
   }
 
   async generateJSON<T>(prompt: string, schema: ZodSchema<T>): Promise<LLMResult<T>> {

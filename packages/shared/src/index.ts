@@ -9,3 +9,11 @@ export {
   type CvImprovement,
   type InterviewQuestion,
 } from './schemas/analysis.js';
+export {
+  chunkMetadataSchema,
+  createSessionResponseSchema,
+  sessionQueryResponseSchema,
+  type ChunkMetadata,
+  type CreateSessionResponse,
+  type SessionQueryResponse,
+} from './schemas/session.js';
