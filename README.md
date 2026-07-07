@@ -4,7 +4,7 @@
 
 MatchMind is an AI resume and job intelligence platform. Users upload a CV, paste a job description, and receive a structured analysis of how well their experience matches the role. The analysis is powered by a real Retrieval-Augmented Generation (RAG) pipeline: the LLM never receives the full CV, only semantically retrieved chunks.
 
-The project is under active development. **Milestone 1** is complete: CV upload, parsing, section-aware chunking, Gemini embeddings, and ChromaDB storage. Job description analysis, the results UI, and chat mode are planned for upcoming milestones.
+The project is under active development. **Milestone 2** is complete: Top-K retrieval against the job description, structured Gemini analysis, Zod validation with retry, and SSE progress streaming. The results UI and chat mode are planned for upcoming milestones.
 
 ## Why I Built This
 
@@ -12,26 +12,27 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 
 ## Features
 
-**Current (Milestone 0 + 1):**
+**Current (Milestone 0 to 2):**
 
 - Monorepo with `client`, `server`, and `packages/shared`
 - Docker Compose stack (client, server, ChromaDB)
 - Dashboard with live server and ChromaDB status, dark/light theme
 - Typed environment configuration (Zod-validated)
-- Gemini provider for embeddings (`gemini-embedding-001`) and generation
+- Gemini embeddings (`gemini-embedding-001`) and JSON generation
 - CV upload via `POST /api/sessions` (PDF and DOCX, size-validated)
 - Section-aware chunking with metadata (`section`, `sourceFile`, `chunkIndex`)
 - Session-scoped Chroma collections (`cv_{sessionId}`)
-- Debug retrieval endpoint to verify stored embeddings
+- Job description analysis via `POST /api/sessions/:id/analyze`
+- Top-K RAG retrieval using only relevant CV chunks (not the full document)
+- Structured analysis output: match score, skill breakdown, strengths, gaps, CV improvements, cover letter, interview questions
+- Zod validation with JSON retry logic and token usage logging
+- SSE progress events (`retrieving`, `analyzing`, `complete`)
 - Session delete to remove uploaded files and vector data
 - Dev Container with Node 20 and Docker-in-Docker
 
-**Planned (Milestone 2 onward):**
+**Planned (Milestone 3 onward):**
 
-- Job description analysis via Top-K retrieval (`POST /api/sessions/:id/analyze`)
-- Structured match scores, strengths, gaps, CV improvements, cover letter, interview questions
-- SSE progress events for real pipeline stages
-- Full dashboard upload flow and results UI
+- Full dashboard upload flow and results UI with real progress stepper
 - Post-analysis chat reusing the session vector store
 - Production hardening, logging, and tests
 
@@ -54,34 +55,39 @@ MatchMind/
 ├── client/                 React frontend
 ├── server/                 Express API
 │   └── src/
-│       ├── ai/providers/   Gemini embedding + LLM interfaces
+│       ├── ai/
+│       │   ├── providers/  Gemini embedding + LLM interfaces
+│       │   └── prompts/    Versioned prompt templates
 │       ├── db/chroma/      Chroma client and collection helpers
 │       ├── rag/
 │       │   ├── chunking/   Section-aware text splitting
-│       │   └── ingestion/  PDF/DOCX parsing and ingest pipeline
-│       ├── services/       Session lifecycle orchestration
+│       │   ├── ingestion/  PDF/DOCX parsing and ingest pipeline
+│       │   └── retrieval/  Top-K semantic search
+│       ├── services/       Session and analysis orchestration
 │       └── routes/         HTTP route definitions
 ├── packages/shared/        Zod schemas and shared TypeScript types
 ├── docker/                 Dockerfiles and nginx config
-├── scripts/                Smoke tests and utilities
+├── scripts/                Anonymous API smoke tests (safe to commit)
 └── .devcontainer/          Dev Container config
 ```
 
-**Ingestion flow (Milestone 1):**
+**Analysis flow (Milestone 2):**
 
-1. Client uploads a CV to `POST /api/sessions`
-2. Server parses PDF or DOCX, chunks by CV section, embeds each chunk with Gemini
-3. Chunks and embeddings are stored in a session-scoped Chroma collection
-4. Retrieval queries embed the search text and return Top-K similar chunks
+1. Client uploads a CV to `POST /api/sessions` (ingestion stores chunks in Chroma)
+2. Client sends a job description to `POST /api/sessions/:id/analyze`
+3. Server embeds the job description and retrieves Top-K CV chunks from Chroma
+4. Gemini generates structured JSON using only the job description and retrieved chunks
+5. Server validates the response with Zod and streams progress over SSE
 
 Shared Zod schemas in `packages/shared` keep API contracts consistent between frontend and backend.
 
-## API (Milestone 1)
+## API
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/health` | Server and ChromaDB health check |
 | `POST` | `/api/sessions` | Upload CV (multipart field: `cv`), ingest into Chroma |
+| `POST` | `/api/sessions/:id/analyze` | Analyze CV against a job description (SSE stream) |
 | `GET` | `/api/sessions/:id/debug/query?q=...` | Test semantic retrieval for a session |
 | `DELETE` | `/api/sessions/:id` | Delete session uploads and Chroma collection |
 
@@ -92,10 +98,12 @@ curl -X POST http://localhost:3001/api/sessions \
   -F "cv=@/path/to/your-cv.pdf;type=application/pdf"
 ```
 
-Example retrieval:
+Example analysis (SSE):
 
 ```bash
-curl "http://localhost:3001/api/sessions/YOUR_SESSION_ID/debug/query?q=cloud%20experience"
+curl -N -X POST http://localhost:3001/api/sessions/YOUR_SESSION_ID/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"jobDescription": "Looking for a TypeScript developer with React and GCP experience."}'
 ```
 
 Delete a session when finished testing:
@@ -129,6 +137,7 @@ cp .env.example .env
 | `PORT` | No | Server port (default: `3001`) |
 | `RAG_TOP_K` | No | Top-K chunks for retrieval (default: `8`) |
 | `MAX_UPLOAD_MB` | No | Max CV upload size in MB (default: `5`) |
+| `GEMINI_GENERATION_MODEL` | No | Gemini model for analysis JSON (default: `gemini-2.5-flash`) |
 
 ### Option A: Dev Container (recommended)
 
@@ -193,7 +202,8 @@ Open [http://localhost:5173](http://localhost:5173). The dashboard shows whether
 | `npm run format` | Format code with Prettier |
 | `docker compose up --build` | Run full stack in Docker |
 | `docker compose up chroma -d` | Start ChromaDB only |
-| `bash scripts/smoke-test-m1.sh` | Smoke test upload and retrieval |
+| `bash scripts/smoke-test-m1.sh` | Smoke test upload and retrieval (anonymous fixture) |
+| `bash scripts/smoke-test-m2.sh` | Smoke test upload and analysis (anonymous fixture) |
 | `docker compose down -v` | Stop stack and wipe upload/Chroma volumes |
 
 ## Data and privacy
@@ -202,7 +212,7 @@ When you upload a CV via the API:
 
 - The original file is stored in the Docker volume `uploads_data` (not in git)
 - Chunk text and embeddings are stored in the Chroma Docker volume `chroma_data`
-- Text is sent to the Gemini API for embedding during ingestion
+- Text is sent to the Gemini API for embedding and analysis
 
 To remove a single session: `DELETE /api/sessions/:id`
 
@@ -210,7 +220,6 @@ To wipe all uploaded data and vectors: `docker compose down -v`
 
 ## Future Improvements
 
-- Milestone 2: RAG analysis endpoint with structured JSON output, Zod validation, retry logic, SSE progress
 - Milestone 3: Dashboard upload UI, results cards, real progress stepper
 - Milestone 4: Chat mode reusing session vector store
 - Milestone 5: Production Docker images, logging, integration tests, OpenAI provider stub

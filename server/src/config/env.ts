@@ -8,6 +8,7 @@ const envSchema = z.object({
   CHROMA_PORT: z.coerce.number().default(8000),
   RAG_TOP_K: z.coerce.number().int().positive().default(8),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(5),
+  GEMINI_GENERATION_MODEL: z.string().default('gemini-2.5-flash'),
 });
 
 export type Env = z.infer<typeof envSchema>;

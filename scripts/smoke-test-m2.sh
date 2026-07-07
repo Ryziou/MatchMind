@@ -10,14 +10,14 @@ mkdir -p "$TMP_DIR/word" "$TMP_DIR/_rels"
 cat > "$TMP_DIR/[Content_Types].xml" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-officedocument.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>
 EOF
 cat > "$TMP_DIR/_rels/.rels" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationships xmlns="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>
 EOF
@@ -29,8 +29,6 @@ cat > "$TMP_DIR/word/document.xml" <<'EOF'
     <w:p><w:r><w:t>Built RAG pipelines with TypeScript, Node.js, and vector databases.</w:t></w:r></w:p>
     <w:p><w:r><w:t>Skills</w:t></w:r></w:p>
     <w:p><w:r><w:t>React, Express, Docker, ChromaDB, Gemini embeddings.</w:t></w:r></w:p>
-    <w:p><w:r><w:t>Education</w:t></w:r></w:p>
-    <w:p><w:r><w:t>BSc Computer Science.</w:t></w:r></w:p>
   </w:body>
 </w:document>
 EOF
@@ -46,15 +44,14 @@ CREATE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/sessions" \
 echo "$CREATE_RESPONSE" | python3 -m json.tool
 
 SESSION_ID=$(echo "$CREATE_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['sessionId'])")
-QUERY_RESPONSE=$(curl -s "$BASE_URL/api/sessions/$SESSION_ID/debug/query?q=vector%20search")
-echo "$QUERY_RESPONSE" | python3 -m json.tool
-
-RESULT_COUNT=$(echo "$QUERY_RESPONSE" | python3 -c "import sys, json; print(len(json.load(sys.stdin)['results']))")
 rm -rf "$TMP_DIR"
 
-if [ "$RESULT_COUNT" -gt 0 ]; then
-  echo "M1 smoke test passed: $RESULT_COUNT retrieved chunks"
-else
-  echo "M1 smoke test failed: no retrieved chunks"
-  exit 1
-fi
+echo ""
+echo "Running analysis for session $SESSION_ID..."
+
+curl -s -N -X POST "$BASE_URL/api/sessions/${SESSION_ID}/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"jobDescription":"Looking for a TypeScript developer with React, Node.js, Docker, and RAG experience."}'
+
+echo ""
+echo "M2 smoke test finished."

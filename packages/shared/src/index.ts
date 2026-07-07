@@ -17,3 +17,13 @@ export {
   type CreateSessionResponse,
   type SessionQueryResponse,
 } from './schemas/session.js';
+export {
+  analyzeSessionRequestSchema,
+  analysisProgressStageSchema,
+  analysisProgressEventSchema,
+  analysisCompleteEventSchema,
+  type AnalyzeSessionRequest,
+  type AnalysisProgressStage,
+  type AnalysisProgressEvent,
+  type AnalysisCompleteEvent,
+} from './schemas/analyze.js';

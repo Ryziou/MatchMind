@@ -2,15 +2,17 @@ import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 import type { ZodSchema } from 'zod';
 import type { Env } from '../../config/env.js';
 import type { AIProviders, LLMResult, LLMUsage } from './types.js';
+import { JsonGenerationError } from '../../utils/generateValidatedJson.js';
 
 const EMBEDDING_MODEL = 'gemini-embedding-001';
-const GENERATION_MODEL = 'gemini-2.0-flash';
 
 export class GeminiProvider implements AIProviders {
   private readonly client: GoogleGenerativeAI;
+  private readonly generationModel: string;
 
   constructor(private readonly env: Env) {
     this.client = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    this.generationModel = env.GEMINI_GENERATION_MODEL;
   }
 
   async embedDocuments(texts: string[]): Promise<number[][]> {
@@ -55,7 +57,7 @@ export class GeminiProvider implements AIProviders {
 
   async generateJSON<T>(prompt: string, schema: ZodSchema<T>): Promise<LLMResult<T>> {
     const model = this.client.getGenerativeModel({
-      model: GENERATION_MODEL,
+      model: this.generationModel,
       generationConfig: {
         responseMimeType: 'application/json',
       },
@@ -63,15 +65,27 @@ export class GeminiProvider implements AIProviders {
 
     const result = await model.generateContent(prompt);
     const rawText = result.response.text();
-    const parsed: unknown = JSON.parse(rawText);
-    const data = schema.parse(parsed);
+    const usage = extractUsage(result.response.usageMetadata);
 
-    const usage: LLMUsage = {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-    };
-
-    return { data, usage, rawText };
+    try {
+      const parsed: unknown = JSON.parse(rawText);
+      const data = schema.parse(parsed);
+      return { data, usage, rawText };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid JSON response';
+      throw new JsonGenerationError(message, rawText);
+    }
   }
+}
+
+function extractUsage(metadata?: {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}): LLMUsage {
+  return {
+    promptTokens: metadata?.promptTokenCount ?? 0,
+    completionTokens: metadata?.candidatesTokenCount ?? 0,
+    totalTokens: metadata?.totalTokenCount ?? 0,
+  };
 }
