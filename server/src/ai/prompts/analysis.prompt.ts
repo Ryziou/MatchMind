@@ -15,6 +15,8 @@ Analyze how well the candidate's CV matches the job description below.
 IMPORTANT RULES:
 - Use ONLY the retrieved CV chunks provided. Do not invent experience that is not supported by the chunks.
 - If evidence is missing, reflect that in missingSkills and lower relevant scores.
+- For interviewQuestions, ground exampleAnswer in the retrieved CV evidence and keep commonMistakes practical.
+- For coverLetter, write a complete, ready-to-send cover letter in the first person as the candidate. Do NOT write coaching advice, instructions, or third-person guidance about what the candidate should say.
 - Return JSON only, matching the required schema exactly.
 
 Job Description:
@@ -36,7 +38,12 @@ Return a JSON object with this shape:
   "strengths": string[],
   "missingSkills": string[],
   "cvImprovements": [{ "section": string, "current": string, "suggested": string }],
-  "coverLetter": string,
-  "interviewQuestions": [{ "question": string, "rationale": string }]
+  "coverLetter": "A complete first-person cover letter ready to send. Include greeting, 2-4 short paragraphs, and a closing. Never return advice about what the candidate should write.",
+  "interviewQuestions": [{
+    "question": string,
+    "rationale": string,
+    "exampleAnswer": string,
+    "commonMistakes": string[]
+  }]
 }`;
 }

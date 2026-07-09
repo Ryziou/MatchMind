@@ -17,6 +17,8 @@ export const cvImprovementSchema = z.object({
 export const interviewQuestionSchema = z.object({
   question: z.string(),
   rationale: z.string(),
+  exampleAnswer: z.string(),
+  commonMistakes: z.array(z.string()).min(1),
 });
 
 export const analysisResultSchema = z.object({

@@ -4,7 +4,7 @@
 
 MatchMind is an AI resume and job intelligence platform. Users upload a CV, paste a job description, and receive a structured analysis of how well their experience matches the role. The analysis is powered by a real Retrieval-Augmented Generation (RAG) pipeline: the LLM never receives the full CV, only semantically retrieved chunks.
 
-The project is under active development. **Milestone 2** is complete: Top-K retrieval against the job description, structured Gemini analysis, Zod validation with retry, and SSE progress streaming. The results UI and chat mode are planned for upcoming milestones.
+The project is under active development. **Milestone 3** is complete: a full browser dashboard for CV upload and job matching, an SSE-driven progress stepper, results navigation with collapsible panels, interview coaching content, and site pages for How It Works and About.
 
 ## Why I Built This
 
@@ -12,11 +12,14 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 
 ## Features
 
-**Current (Milestone 0 to 2):**
+**Current (Milestone 0 to 3):**
 
 - Monorepo with `client`, `server`, and `packages/shared`
 - Docker Compose stack (client, server, ChromaDB)
-- Dashboard with live server and ChromaDB status, dark/light theme
+- Dashboard upload flow with drag-and-drop CV upload and resizable job description input
+- Global top navigation: Home, How It Works, About
+- Footer with GitHub link and a short RAG explanation
+- Dark/light theme toggle with teal PrimeReact themes
 - Typed environment configuration (Zod-validated)
 - Gemini embeddings (`gemini-embedding-001`) and JSON generation
 - CV upload via `POST /api/sessions` (PDF and DOCX, size-validated)
@@ -25,22 +28,27 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 - Job description analysis via `POST /api/sessions/:id/analyze`
 - Top-K RAG retrieval using only relevant CV chunks (not the full document)
 - Structured analysis output: match score, skill breakdown, strengths, gaps, CV improvements, cover letter, interview questions
+- Interview coaching fields: rationale, example answer, and common mistakes
 - Zod validation with JSON retry logic and token usage logging
-- SSE progress events (`retrieving`, `analyzing`, `complete`)
-- Session delete to remove uploaded files and vector data
+- SSE progress events (`retrieving`, `analyzing`, `complete`) with a real frontend stepper
+- Results page with left-side section navigation, severity-colored scores, radar chart, and collapsible CV/cover letter/interview panels
+- Delete uploaded CV from the results page (`DELETE /api/sessions/:id`)
 - Dev Container with Node 20 and Docker-in-Docker
 
-**Planned (Milestone 3 onward):**
+**Planned (Milestone 4 onward):**
 
-- Full dashboard upload flow and results UI with real progress stepper
 - Post-analysis chat reusing the session vector store
 - Production hardening, logging, and tests
+
+**Deferred (post-MVP):**
+
+- Saved analysis history and multi-CV persistence
 
 ## Tech Stack
 
 | Layer | Technologies |
 |-------|--------------|
-| Frontend | React, TypeScript, Vite, PrimeReact, React Router |
+| Frontend | React, TypeScript, Vite, PrimeReact, Chart.js, React Router |
 | Backend | Node.js, Express, TypeScript |
 | AI | Google Gemini (`@google/generative-ai`) |
 | Vector DB | ChromaDB |
@@ -53,6 +61,12 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 ```
 MatchMind/
 ├── client/                 React frontend
+│   └── src/
+│       ├── components/     Upload, progress, results panels, nav
+│       ├── hooks/          Analysis orchestration hook
+│       ├── pages/          Dashboard and results routes
+│       ├── services/       Typed API client (upload + SSE)
+│       └── theme/          Theme provider and global styles
 ├── server/                 Express API
 │   └── src/
 │       ├── ai/
@@ -71,13 +85,14 @@ MatchMind/
 └── .devcontainer/          Dev Container config
 ```
 
-**Analysis flow (Milestone 2):**
+**Analysis flow:**
 
 1. Client uploads a CV to `POST /api/sessions` (ingestion stores chunks in Chroma)
 2. Client sends a job description to `POST /api/sessions/:id/analyze`
 3. Server embeds the job description and retrieves Top-K CV chunks from Chroma
 4. Gemini generates structured JSON using only the job description and retrieved chunks
 5. Server validates the response with Zod and streams progress over SSE
+6. Client advances the stepper on confirmed stages, then renders the results page
 
 Shared Zod schemas in `packages/shared` keep API contracts consistent between frontend and backend.
 
@@ -159,9 +174,12 @@ For day-to-day development inside the container:
 
 ```bash
 docker compose up chroma -d
+# From the repo root (recommended):
 npm run dev --workspace=@matchmind/server   # terminal 1
 npm run dev --workspace=@matchmind/client   # terminal 2
 ```
+
+The server always loads the root `.env` file, even if you run from `server/`. For local npm runs, set `CHROMA_HOST=localhost` in `.env`. Keep `CHROMA_HOST=chroma` when the server runs inside Docker Compose.
 
 ### Option B: Docker Compose on the host (full stack)
 
@@ -188,7 +206,7 @@ npm run dev --workspace=@matchmind/server
 npm run dev --workspace=@matchmind/client
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The dashboard shows whether the server and ChromaDB are reachable.
+Open [http://localhost:5173](http://localhost:5173). Use the dashboard to upload a CV and run analysis against a job description.
 
 ## Scripts / Commands
 
@@ -220,6 +238,6 @@ To wipe all uploaded data and vectors: `docker compose down -v`
 
 ## Future Improvements
 
-- Milestone 3: Dashboard upload UI, results cards, real progress stepper
 - Milestone 4: Chat mode reusing session vector store
-- Milestone 5: Production Docker images, logging, integration tests, OpenAI provider stub
+- Milestone 5: Production Docker images, logging, integration tests, OpenAI provider stub, request validation polish
+- Post-MVP: Saved analysis history, multiple CV versions, authentication
