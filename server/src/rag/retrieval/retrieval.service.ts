@@ -5,19 +5,16 @@ import type { AppContainer } from '../../container.js';
 export class RetrievalService {
   constructor(private readonly container: AppContainer) {}
 
+  async retrieveForQuery(sessionId: string, query: string): Promise<StoredChunk[]> {
+    const topK = this.container.env.RAG_TOP_K;
+    const queryEmbedding = await this.container.ai.embedQuery(query);
+    return querySessionChunks(this.container.chroma, sessionId, queryEmbedding, topK);
+  }
+
   async retrieveForJobDescription(
     sessionId: string,
     jobDescription: string,
   ): Promise<StoredChunk[]> {
-    const topK = this.container.env.RAG_TOP_K;
-    const queryEmbedding = await this.container.ai.embedQuery(jobDescription);
-    const chunks = await querySessionChunks(
-      this.container.chroma,
-      sessionId,
-      queryEmbedding,
-      topK,
-    );
-
-    return chunks;
+    return this.retrieveForQuery(sessionId, jobDescription);
   }
 }

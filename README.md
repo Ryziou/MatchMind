@@ -4,7 +4,7 @@
 
 MatchMind is an AI resume and job intelligence platform. Users upload a CV, paste a job description, and receive a structured analysis of how well their experience matches the role. The analysis is powered by a real Retrieval-Augmented Generation (RAG) pipeline: the LLM never receives the full CV, only semantically retrieved chunks.
 
-The project is under active development. **Milestone 3** is complete: a full browser dashboard for CV upload and job matching, an SSE-driven progress stepper, results navigation with collapsible panels, interview coaching content, and site pages for How It Works and About.
+The project is under active development. **Milestone 4** is complete: post-analysis chat reuses the same session vector store, so users can ask follow-up questions about projects, rewrites, and skill gaps without re-uploading their CV.
 
 ## Why I Built This
 
@@ -12,7 +12,7 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 
 ## Features
 
-**Current (Milestone 0 to 3):**
+**Current (Milestone 0 to 4):**
 
 - Monorepo with `client`, `server`, and `packages/shared`
 - Docker Compose stack (client, server, ChromaDB)
@@ -29,15 +29,16 @@ I wanted to create a portfolio project that demonstrates my use of Retrieval-Aug
 - Top-K RAG retrieval using only relevant CV chunks (not the full document)
 - Structured analysis output: match score, skill breakdown, strengths, gaps, CV improvements, cover letter, interview questions
 - Interview coaching fields: rationale, example answer, and common mistakes
+- Post-analysis chat via `POST /api/sessions/:id/chat` with conversation history and cited CV sections
+- Results-page chat panel with example prompts (project matching, rewrite ideas, skill gaps)
 - Zod validation with JSON retry logic and token usage logging
 - SSE progress events (`retrieving`, `analyzing`, `complete`) with a real frontend stepper
 - Results page with left-side section navigation, severity-colored scores, radar chart, and collapsible CV/cover letter/interview panels
 - Delete uploaded CV from the results page (`DELETE /api/sessions/:id`)
 - Dev Container with Node 20 and Docker-in-Docker
 
-**Planned (Milestone 4 onward):**
+**Planned (Milestone 5):**
 
-- Post-analysis chat reusing the session vector store
 - Production hardening, logging, and tests
 
 **Deferred (post-MVP):**
@@ -63,21 +64,21 @@ MatchMind/
 ├── client/                 React frontend
 │   └── src/
 │       ├── components/     Upload, progress, results panels, nav
-│       ├── hooks/          Analysis orchestration hook
+│       ├── hooks/          Analysis and chat hooks
 │       ├── pages/          Dashboard and results routes
-│       ├── services/       Typed API client (upload + SSE)
+│       ├── services/       Typed API client (upload + SSE + chat)
 │       └── theme/          Theme provider and global styles
 ├── server/                 Express API
 │   └── src/
 │       ├── ai/
 │       │   ├── providers/  Gemini embedding + LLM interfaces
-│       │   └── prompts/    Versioned prompt templates
+│       │   └── prompts/    Analysis and chat prompt templates
 │       ├── db/chroma/      Chroma client and collection helpers
 │       ├── rag/
 │       │   ├── chunking/   Section-aware text splitting
 │       │   ├── ingestion/  PDF/DOCX parsing and ingest pipeline
 │       │   └── retrieval/  Top-K semantic search
-│       ├── services/       Session and analysis orchestration
+│       ├── services/       Session, analysis, and chat orchestration
 │       └── routes/         HTTP route definitions
 ├── packages/shared/        Zod schemas and shared TypeScript types
 ├── docker/                 Dockerfiles and nginx config
@@ -93,6 +94,7 @@ MatchMind/
 4. Gemini generates structured JSON using only the job description and retrieved chunks
 5. Server validates the response with Zod and streams progress over SSE
 6. Client advances the stepper on confirmed stages, then renders the results page
+7. Optional chat: client sends follow-up questions to `POST /api/sessions/:id/chat`, which retrieves fresh Top-K chunks from the same session collection
 
 Shared Zod schemas in `packages/shared` keep API contracts consistent between frontend and backend.
 
@@ -103,6 +105,7 @@ Shared Zod schemas in `packages/shared` keep API contracts consistent between fr
 | `GET` | `/api/health` | Server and ChromaDB health check |
 | `POST` | `/api/sessions` | Upload CV (multipart field: `cv`), ingest into Chroma |
 | `POST` | `/api/sessions/:id/analyze` | Analyze CV against a job description (SSE stream) |
+| `POST` | `/api/sessions/:id/chat` | Ask a follow-up question using the session vector store |
 | `GET` | `/api/sessions/:id/debug/query?q=...` | Test semantic retrieval for a session |
 | `DELETE` | `/api/sessions/:id` | Delete session uploads and Chroma collection |
 
@@ -119,6 +122,14 @@ Example analysis (SSE):
 curl -N -X POST http://localhost:3001/api/sessions/YOUR_SESSION_ID/analyze \
   -H "Content-Type: application/json" \
   -d '{"jobDescription": "Looking for a TypeScript developer with React and GCP experience."}'
+```
+
+Example chat:
+
+```bash
+curl -X POST http://localhost:3001/api/sessions/YOUR_SESSION_ID/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Which projects best match this role?","history":[],"jobDescription":"Looking for a TypeScript developer with React and GCP experience."}'
 ```
 
 Delete a session when finished testing:
@@ -152,7 +163,8 @@ cp .env.example .env
 | `PORT` | No | Server port (default: `3001`) |
 | `RAG_TOP_K` | No | Top-K chunks for retrieval (default: `8`) |
 | `MAX_UPLOAD_MB` | No | Max CV upload size in MB (default: `5`) |
-| `GEMINI_GENERATION_MODEL` | No | Gemini model for analysis JSON (default: `gemini-2.5-flash`) |
+| `GEMINI_GENERATION_MODEL` | No | Gemini model for analysis/chat JSON (default: `gemini-2.5-flash`) |
+| `CHAT_HISTORY_TURNS` | No | Max prior chat turns sent with each request (default: `6`) |
 
 ### Option A: Dev Container (recommended)
 
@@ -222,6 +234,7 @@ Open [http://localhost:5173](http://localhost:5173). Use the dashboard to upload
 | `docker compose up chroma -d` | Start ChromaDB only |
 | `bash scripts/smoke-test-m1.sh` | Smoke test upload and retrieval (anonymous fixture) |
 | `bash scripts/smoke-test-m2.sh` | Smoke test upload and analysis (anonymous fixture) |
+| `bash scripts/smoke-test-m4.sh` | Smoke test upload and chat (anonymous fixture) |
 | `docker compose down -v` | Stop stack and wipe upload/Chroma volumes |
 
 ## Data and privacy
@@ -238,6 +251,5 @@ To wipe all uploaded data and vectors: `docker compose down -v`
 
 ## Future Improvements
 
-- Milestone 4: Chat mode reusing session vector store
 - Milestone 5: Production Docker images, logging, integration tests, OpenAI provider stub, request validation polish
 - Post-MVP: Saved analysis history, multiple CV versions, authentication

@@ -6,6 +6,7 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
+import { ChatPanel } from '../components/ChatPanel';
 import { CoverLetterPanel } from '../components/CoverLetterPanel';
 import { CvImprovements } from '../components/CvImprovements';
 import { InterviewQuestions } from '../components/InterviewQuestions';
@@ -19,6 +20,7 @@ interface ResultsLocationState {
   analysis?: AnalysisResult;
   retrievedChunkIds?: string[];
   fileName?: string;
+  jobDescription?: string;
 }
 
 const NAV_ITEMS = [
@@ -28,6 +30,7 @@ const NAV_ITEMS = [
   { id: 'cv-improvements', label: 'CV improvements' },
   { id: 'cover-letter', label: 'Cover letter' },
   { id: 'interview-questions', label: 'Interview questions' },
+  { id: 'chat', label: 'Ask about your CV' },
 ];
 
 export function AnalysisResults() {
@@ -119,6 +122,7 @@ export function AnalysisResults() {
           <CvImprovements improvements={analysis.cvImprovements} />
           <CoverLetterPanel coverLetter={analysis.coverLetter} />
           <InterviewQuestions questions={analysis.interviewQuestions} />
+          <ChatPanel sessionId={sessionId} jobDescription={state.jobDescription} />
 
           <section className="workspace-panel privacy-panel">
             <h2 className="section-title m-0">Privacy</h2>

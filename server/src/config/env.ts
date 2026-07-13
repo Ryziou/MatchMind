@@ -9,6 +9,7 @@ const envSchema = z.object({
   RAG_TOP_K: z.coerce.number().int().positive().default(8),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(5),
   GEMINI_GENERATION_MODEL: z.string().default('gemini-2.5-flash'),
+  CHAT_HISTORY_TURNS: z.coerce.number().int().positive().max(20).default(6),
 });
 
 export type Env = z.infer<typeof envSchema>;

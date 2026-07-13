@@ -4,6 +4,7 @@ build/
 uploads/
 coverage/
 tests/
+scripts/
 
 .vite/
 .cursor/

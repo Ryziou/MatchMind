@@ -27,3 +27,15 @@ export {
   type AnalysisProgressEvent,
   type AnalysisCompleteEvent,
 } from './schemas/analyze.js';
+export {
+  chatRoleSchema,
+  chatMessageSchema,
+  chatRequestSchema,
+  chatAnswerSchema,
+  chatResponseSchema,
+  type ChatRole,
+  type ChatMessage,
+  type ChatRequest,
+  type ChatAnswer,
+  type ChatResponse,
+} from './schemas/chat.js';

@@ -80,6 +80,7 @@ export function Dashboard() {
                   analysis: result.analysis,
                   retrievedChunkIds: result.retrievedChunkIds,
                   fileName: file.name,
+                  jobDescription,
                 },
               });
             }

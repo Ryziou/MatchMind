@@ -1,9 +1,12 @@
 import {
   analysisCompleteEventSchema,
   analysisProgressEventSchema,
+  chatResponseSchema,
   createSessionResponseSchema,
   type AnalysisCompleteEvent,
   type AnalysisProgressEvent,
+  type ChatMessage,
+  type ChatResponse,
   type CreateSessionResponse,
   type HealthResponse,
 } from '@matchmind/shared';
@@ -144,4 +147,27 @@ export async function deleteSession(sessionId: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     throw new Error(await readErrorMessage(response));
   }
+}
+
+export async function sendChatMessage(
+  sessionId: string,
+  message: string,
+  history: ChatMessage[],
+  jobDescription?: string,
+): Promise<ChatResponse> {
+  const response = await fetch(`/api/sessions/${sessionId}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      history,
+      ...(jobDescription?.trim() ? { jobDescription: jobDescription.trim() } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return chatResponseSchema.parse(await response.json());
 }
