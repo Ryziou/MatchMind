@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { aiProviderSchema } from './provider.js';
 
 export const chunkMetadataSchema = z.object({
   section: z.string(),
@@ -11,6 +12,7 @@ export const createSessionResponseSchema = z.object({
   chunkCount: z.number().int().nonnegative(),
   fileName: z.string(),
   fileType: z.enum(['pdf', 'docx']),
+  provider: aiProviderSchema,
 });
 
 export const sessionQueryResponseSchema = z.object({

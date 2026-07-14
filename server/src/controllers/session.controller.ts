@@ -1,31 +1,46 @@
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
-import { createSessionResponseSchema, sessionQueryResponseSchema } from '@matchmind/shared';
+import {
+  aiProviderSchema,
+  createSessionResponseSchema,
+  providersResponseSchema,
+  sessionQueryResponseSchema,
+  type AIProviderName,
+} from '@matchmind/shared';
 import type { AppContainer } from '../container.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getUploadedCv } from '../middleware/upload.js';
 
-function getRouteParam(value: string | string[] | undefined): string {
-  if (typeof value === 'string') {
-    return value;
+function resolveProvider(req: Request, container: AppContainer): AIProviderName {
+  const raw = req.body?.provider;
+  if (raw === undefined || raw === null || raw === '') {
+    return container.listProviders().defaultProvider;
   }
 
-  if (Array.isArray(value) && value[0]) {
-    return value[0];
+  const parsed = aiProviderSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new AppError(400, 'Provider must be gemini or openai');
   }
 
-  throw new AppError(400, 'Missing route parameter');
+  return parsed.data;
 }
 
 export function createSessionController(container: AppContainer) {
   return {
+    listProviders: (_req: Request, res: Response): void => {
+      const payload = providersResponseSchema.parse(container.listProviders());
+      res.json(payload);
+    },
+
     createSession: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const file = getUploadedCv(req);
+        const provider = resolveProvider(req, container);
         const result = await container.sessionService.createSession(
           file.buffer,
           file.originalname,
           file.mimetype,
+          provider,
         );
         const payload = createSessionResponseSchema.parse(result);
         res.status(201).json(payload);
@@ -36,11 +51,9 @@ export function createSessionController(container: AppContainer) {
 
     querySession: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const query = typeof req.query.q === 'string' ? req.query.q : '';
-        const result = await container.sessionService.querySession(
-          getRouteParam(req.params.sessionId),
-          query,
-        );
+        const sessionId = String(req.params.sessionId);
+        const query = String(req.query.q ?? '');
+        const result = await container.sessionService.querySession(sessionId, query);
         const payload = sessionQueryResponseSchema.parse(result);
         res.json(payload);
       } catch (error) {
@@ -50,7 +63,7 @@ export function createSessionController(container: AppContainer) {
 
     deleteSession: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        await container.sessionService.deleteSession(getRouteParam(req.params.sessionId));
+        await container.sessionService.deleteSession(String(req.params.sessionId));
         res.status(204).send();
       } catch (error) {
         next(error);

@@ -3,12 +3,15 @@ import {
   analysisProgressEventSchema,
   chatResponseSchema,
   createSessionResponseSchema,
+  providersResponseSchema,
+  type AIProviderName,
   type AnalysisCompleteEvent,
   type AnalysisProgressEvent,
   type ChatMessage,
   type ChatResponse,
   type CreateSessionResponse,
   type HealthResponse,
+  type ProvidersResponse,
 } from '@matchmind/shared';
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -34,9 +37,23 @@ export async function fetchHealth(): Promise<HealthResponse> {
   return response.json() as Promise<HealthResponse>;
 }
 
-export async function createSession(file: File): Promise<CreateSessionResponse> {
+export async function fetchProviders(): Promise<ProvidersResponse> {
+  const response = await fetch('/api/providers');
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return providersResponseSchema.parse(await response.json());
+}
+
+export async function createSession(
+  file: File,
+  provider: AIProviderName,
+): Promise<CreateSessionResponse> {
   const formData = new FormData();
   formData.append('cv', file);
+  formData.append('provider', provider);
 
   const response = await fetch('/api/sessions', {
     method: 'POST',

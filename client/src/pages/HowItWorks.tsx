@@ -25,6 +25,10 @@ export function HowItWorks() {
               against.
             </li>
             <li>
+              <strong>Choose an AI provider.</strong> Gemini or OpenAI embeds your CV and generates
+              the report for that session.
+            </li>
+            <li>
               <strong>Find the best-matching sections.</strong> Instead of sending your whole CV to
               the AI, MatchMind pulls out the parts that best match the role.
             </li>
@@ -51,16 +55,16 @@ export function HowItWorks() {
           </p>
           <ul className="tech-list">
             <li>
-              <strong>Ingestion:</strong> PDF/DOCX parsing, section-aware chunking, Gemini
+              <strong>Ingestion:</strong> PDF/DOCX parsing, section-aware chunking, provider-specific
               embeddings, and storage in a session-scoped Chroma collection.
             </li>
             <li>
-              <strong>Retrieval:</strong> The job description is embedded and used for Top-K
-              semantic search against that session collection.
+              <strong>Retrieval:</strong> The job description is embedded with the same provider and
+              used for Top-K semantic search against that session collection.
             </li>
             <li>
               <strong>Generation:</strong> Only retrieved chunks plus the job description are sent
-              to Gemini for structured JSON analysis.
+              to the selected provider for structured JSON analysis.
             </li>
             <li>
               <strong>Validation:</strong> Responses are checked with Zod schemas, with retry on

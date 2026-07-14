@@ -23,4 +23,4 @@ export interface LLMProvider {
 
 export interface AIProviders extends EmbeddingProvider, LLMProvider {}
 
-export type AIProviderName = 'gemini' | 'openai';
+export type { AIProviderName } from '@matchmind/shared';

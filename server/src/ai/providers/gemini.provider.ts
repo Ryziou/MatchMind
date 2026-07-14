@@ -12,6 +12,10 @@ export class GeminiProvider implements AIProviders {
   private readonly generationModel: string;
 
   constructor(private readonly env: Env) {
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is required for the Gemini provider');
+    }
+
     this.client = new GoogleGenerativeAI(env.GEMINI_API_KEY);
     this.generationModel = env.GEMINI_GENERATION_MODEL;
   }

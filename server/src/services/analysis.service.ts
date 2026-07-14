@@ -11,6 +11,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { sessionCollectionExists } from '../db/chroma/collections.js';
 import { RetrievalService } from '../rag/retrieval/retrieval.service.js';
 import { generateValidatedJson } from '../utils/generateValidatedJson.js';
+import { logger } from '../utils/logger.js';
 
 export type AnalysisProgressHandler = (event: AnalysisProgressEvent) => void;
 
@@ -36,11 +37,15 @@ export class AnalysisService {
       throw new AppError(400, 'Job description is required');
     }
 
+    const provider = await this.container.sessionService.getSessionProvider(sessionId);
+    const ai = this.container.getAiProvider(provider);
+
     onProgress(analysisProgressEventSchema.parse({ stage: 'retrieving' }));
 
     const retrievedChunks = await this.retrieval.retrieveForJobDescription(
       sessionId,
       trimmedJobDescription,
+      ai,
     );
     const topK = this.container.env.RAG_TOP_K;
 
@@ -53,19 +58,22 @@ export class AnalysisService {
     }
 
     const retrievedChunkIds = retrievedChunks.map((chunk) => chunk.id);
-    console.info(
-      `[analysis] session=${sessionId} retrievedChunkCount=${retrievedChunks.length} chunkIds=${retrievedChunkIds.join(',')}`,
+    logger.info(
+      {
+        sessionId,
+        provider,
+        retrievedChunkCount: retrievedChunks.length,
+        chunkIds: retrievedChunkIds,
+      },
+      'Analysis retrieval complete',
     );
 
     onProgress(analysisProgressEventSchema.parse({ stage: 'analyzing' }));
 
     const prompt = buildAnalysisPrompt(trimmedJobDescription, retrievedChunks);
-    const { data: analysis } = await generateValidatedJson(
-      this.container.ai,
-      prompt,
-      analysisResultSchema,
-      { label: `analysis:${sessionId}` },
-    );
+    const { data: analysis } = await generateValidatedJson(ai, prompt, analysisResultSchema, {
+      label: `analysis:${sessionId}`,
+    });
 
     const completeEvent = analysisCompleteEventSchema.parse({
       stage: 'complete',

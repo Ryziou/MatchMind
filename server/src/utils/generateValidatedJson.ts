@@ -1,5 +1,6 @@
 import type { ZodSchema } from 'zod';
 import type { AIProviders, LLMResult } from '../ai/providers/types.js';
+import { logger } from './logger.js';
 
 const DEFAULT_MAX_RETRIES = 2;
 
@@ -33,8 +34,15 @@ export async function generateValidatedJson<T>(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
     try {
       const result = await ai.generateJSON(currentPrompt, schema);
-      console.info(
-        `[${label}] attempt=${attempt} promptTokens=${result.usage.promptTokens} completionTokens=${result.usage.completionTokens} totalTokens=${result.usage.totalTokens}`,
+      logger.info(
+        {
+          label,
+          attempt,
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
+          totalTokens: result.usage.totalTokens,
+        },
+        'LLM generation succeeded',
       );
       return result;
     } catch (error) {
@@ -45,7 +53,7 @@ export async function generateValidatedJson<T>(
       lastError = error.message;
       const rawText = error.rawText;
 
-      console.warn(`[${label}] attempt=${attempt} validation failed: ${lastError}`);
+      logger.warn({ label, attempt, err: lastError }, 'LLM JSON validation failed');
 
       if (attempt > maxRetries) {
         break;

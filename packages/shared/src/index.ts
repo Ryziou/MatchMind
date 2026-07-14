@@ -1,5 +1,13 @@
 export { healthResponseSchema, type HealthResponse } from './schemas/health.js';
 export {
+  aiProviderSchema,
+  providerOptionSchema,
+  providersResponseSchema,
+  type AIProviderName,
+  type ProviderOption,
+  type ProvidersResponse,
+} from './schemas/provider.js';
+export {
   analysisResultSchema,
   skillBreakdownSchema,
   cvImprovementSchema,
@@ -39,3 +47,9 @@ export {
   type ChatAnswer,
   type ChatResponse,
 } from './schemas/chat.js';
+export {
+  sessionIdParamsSchema,
+  sessionQueryRequestSchema,
+  type SessionIdParams,
+  type SessionQueryRequest,
+} from './schemas/params.js';

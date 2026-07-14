@@ -1,4 +1,4 @@
-import type { AnalysisResult } from '@matchmind/shared';
+import type { AIProviderName, AnalysisResult } from '@matchmind/shared';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { Message } from 'primereact/message';
@@ -21,7 +21,13 @@ interface ResultsLocationState {
   retrievedChunkIds?: string[];
   fileName?: string;
   jobDescription?: string;
+  provider?: AIProviderName;
 }
+
+const PROVIDER_LABELS: Record<AIProviderName, string> = {
+  gemini: 'Google Gemini',
+  openai: 'OpenAI',
+};
 
 const NAV_ITEMS = [
   { id: 'overall-match', label: 'Overall match' },
@@ -87,6 +93,12 @@ export function AnalysisResults() {
   }
 
   const sectionCount = state.retrievedChunkIds?.length ?? 0;
+  const providerLabel = state.provider ? PROVIDER_LABELS[state.provider] : null;
+  const basisParts = [
+    state.fileName ? `Based on ${state.fileName}` : null,
+    `${sectionCount} relevant CV section${sectionCount === 1 ? '' : 's'}`,
+    providerLabel ? `via ${providerLabel}` : null,
+  ].filter(Boolean);
 
   return (
     <AppShell>
@@ -106,11 +118,7 @@ export function AnalysisResults() {
             <div>
               <p className="eyebrow m-0">Match report</p>
               <h1 className="hero-title hero-title--compact m-0">Your match report</h1>
-              <p className="hero-copy m-0">
-                {state.fileName
-                  ? `Based on ${state.fileName} and ${sectionCount} relevant CV section${sectionCount === 1 ? '' : 's'}.`
-                  : `Based on ${sectionCount} relevant CV section${sectionCount === 1 ? '' : 's'}.`}
-              </p>
+              <p className="hero-copy m-0">{basisParts.join(' · ')}.</p>
             </div>
           </section>
 

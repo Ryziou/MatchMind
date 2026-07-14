@@ -1,18 +1,53 @@
+import type { AIProviderName, ProviderOption } from '@matchmind/shared';
 import { Button } from 'primereact/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { CvDropzone } from '../components/CvDropzone';
 import { ProgressStepper } from '../components/ProgressStepper';
+import { ProviderPicker } from '../components/ProviderPicker';
 import { useAnalysis } from '../hooks/useAnalysis';
+import { fetchProviders } from '../services/api';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [provider, setProvider] = useState<AIProviderName>('gemini');
+  const [providersError, setProvidersError] = useState<string | null>(null);
   const { stage, error, isRunning, runAnalysis } = useAnalysis();
 
-  const canAnalyze = Boolean(file && jobDescription.trim() && !isRunning);
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchProviders()
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        setProviders(response.providers);
+        setProvider(response.defaultProvider);
+        setProvidersError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setProvidersError(err instanceof Error ? err.message : 'Could not load AI providers');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedAvailable = providers.find((item) => item.id === provider)?.available ?? false;
+  const canAnalyze = Boolean(
+    file && jobDescription.trim() && selectedAvailable && !isRunning && !providersError,
+  );
 
   return (
     <AppShell>
@@ -56,6 +91,25 @@ export function Dashboard() {
         </div>
       </section>
 
+      <section className="workspace-panel provider-panel">
+        <div className="workspace-panel__header">
+          <h2 className="section-title m-0">3. AI provider</h2>
+          <p className="section-subtitle m-0">
+            Choose which model family embeds your CV and generates the analysis for this session.
+          </p>
+        </div>
+        {providersError ? (
+          <p className="provider-panel__error m-0">{providersError}</p>
+        ) : (
+          <ProviderPicker
+            providers={providers}
+            value={provider}
+            disabled={isRunning}
+            onChange={setProvider}
+          />
+        )}
+      </section>
+
       <div className="analyze-bar">
         <div>
           <p className="analyze-bar__title m-0">Ready when you are</p>
@@ -73,7 +127,7 @@ export function Dashboard() {
               return;
             }
 
-            const result = await runAnalysis(file, jobDescription);
+            const result = await runAnalysis(file, jobDescription, provider);
             if (result) {
               navigate(`/results/${result.sessionId}`, {
                 state: {
@@ -81,6 +135,7 @@ export function Dashboard() {
                   retrievedChunkIds: result.retrievedChunkIds,
                   fileName: file.name,
                   jobDescription,
+                  provider,
                 },
               });
             }

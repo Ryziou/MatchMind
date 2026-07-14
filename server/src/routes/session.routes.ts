@@ -1,11 +1,18 @@
 import { Router } from 'express';
 import {
+  analyzeSessionRequestSchema,
+  chatRequestSchema,
+  sessionIdParamsSchema,
+  sessionQueryRequestSchema,
+} from '@matchmind/shared';
+import {
   createSessionController,
   mapUploadError,
 } from '../controllers/session.controller.js';
 import { createAnalysisController } from '../controllers/analysis.controller.js';
 import { createChatController } from '../controllers/chat.controller.js';
 import { createUploadMiddleware } from '../middleware/upload.js';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 import type { AppContainer } from '../container.js';
 
 export function createSessionRouter(container: AppContainer): Router {
@@ -14,6 +21,9 @@ export function createSessionRouter(container: AppContainer): Router {
   const analysisController = createAnalysisController(container);
   const chatController = createChatController(container);
   const upload = createUploadMiddleware(container.env);
+  const requireSessionId = validateParams(sessionIdParamsSchema);
+
+  router.get('/providers', controller.listProviders);
 
   router.post('/sessions', (req, res, next) => {
     upload(req, res, (err) => {
@@ -26,10 +36,25 @@ export function createSessionRouter(container: AppContainer): Router {
     });
   });
 
-  router.get('/sessions/:sessionId/debug/query', controller.querySession);
-  router.post('/sessions/:sessionId/analyze', analysisController.analyzeSession);
-  router.post('/sessions/:sessionId/chat', chatController.chat);
-  router.delete('/sessions/:sessionId', controller.deleteSession);
+  router.get(
+    '/sessions/:sessionId/debug/query',
+    requireSessionId,
+    validateQuery(sessionQueryRequestSchema),
+    controller.querySession,
+  );
+  router.post(
+    '/sessions/:sessionId/analyze',
+    requireSessionId,
+    validateBody(analyzeSessionRequestSchema),
+    analysisController.analyzeSession,
+  );
+  router.post(
+    '/sessions/:sessionId/chat',
+    requireSessionId,
+    validateBody(chatRequestSchema),
+    chatController.chat,
+  );
+  router.delete('/sessions/:sessionId', requireSessionId, controller.deleteSession);
 
   return router;
 }

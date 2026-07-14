@@ -10,6 +10,7 @@ import { sessionCollectionExists } from '../db/chroma/collections.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { RetrievalService } from '../rag/retrieval/retrieval.service.js';
 import { generateValidatedJson } from '../utils/generateValidatedJson.js';
+import { logger } from '../utils/logger.js';
 
 export class ChatService {
   private readonly retrieval: RetrievalService;
@@ -34,6 +35,9 @@ export class ChatService {
       throw new AppError(400, 'Message is required');
     }
 
+    const provider = await this.container.sessionService.getSessionProvider(sessionId);
+    const ai = this.container.getAiProvider(provider);
+
     const trimmedJobDescription = jobDescription?.trim();
     const historyLimit = this.container.env.CHAT_HISTORY_TURNS;
     const recentHistory = history.slice(-historyLimit);
@@ -42,7 +46,11 @@ export class ChatService {
       ? `${trimmedMessage}\n\nJob description:\n${trimmedJobDescription}`
       : trimmedMessage;
 
-    const retrievedChunks = await this.retrieval.retrieveForQuery(sessionId, retrievalQuery);
+    const retrievedChunks = await this.retrieval.retrieveForQuery(
+      sessionId,
+      retrievalQuery,
+      ai,
+    );
     const topK = this.container.env.RAG_TOP_K;
 
     if (retrievedChunks.length === 0) {
@@ -54,8 +62,15 @@ export class ChatService {
     }
 
     const retrievedChunkIds = retrievedChunks.map((chunk) => chunk.id);
-    console.info(
-      `[chat] session=${sessionId} retrievedChunkCount=${retrievedChunks.length} chunkIds=${retrievedChunkIds.join(',')} hasJobDescription=${Boolean(trimmedJobDescription)}`,
+    logger.info(
+      {
+        sessionId,
+        provider,
+        retrievedChunkCount: retrievedChunks.length,
+        chunkIds: retrievedChunkIds,
+        hasJobDescription: Boolean(trimmedJobDescription),
+      },
+      'Chat retrieval complete',
     );
 
     const prompt = buildChatPrompt(
@@ -64,12 +79,9 @@ export class ChatService {
       recentHistory,
       trimmedJobDescription,
     );
-    const { data } = await generateValidatedJson(
-      this.container.ai,
-      prompt,
-      chatAnswerSchema,
-      { label: `chat:${sessionId}` },
-    );
+    const { data } = await generateValidatedJson(ai, prompt, chatAnswerSchema, {
+      label: `chat:${sessionId}`,
+    });
 
     const allowedIds = new Set(retrievedChunkIds);
     const citedChunkIds = data.citedChunkIds.filter((id) => allowedIds.has(id));
