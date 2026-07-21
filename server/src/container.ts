@@ -5,6 +5,7 @@ import { isProviderConfigured, type Env } from './config/env.js';
 import { ChromaClientWrapper } from './db/chroma/client.js';
 import { AppError } from './middleware/errorHandler.js';
 import { AnalysisService } from './services/analysis.service.js';
+import { ApplyService } from './services/apply.service.js';
 import { ChatService } from './services/chat.service.js';
 import { SessionService } from './services/session.service.js';
 
@@ -21,6 +22,7 @@ export interface AppContainer {
   assertProviderAvailable: (name: AIProviderName) => void;
   sessionService: SessionService;
   analysisService: AnalysisService;
+  applyService: ApplyService;
   chatService: ChatService;
 }
 
@@ -99,11 +101,13 @@ export function createContainer(
     assertProviderAvailable,
     sessionService: undefined as unknown as SessionService,
     analysisService: undefined as unknown as AnalysisService,
+    applyService: undefined as unknown as ApplyService,
     chatService: undefined as unknown as ChatService,
   } as AppContainer;
 
   container.sessionService = new SessionService(container);
   container.analysisService = new AnalysisService(container);
+  container.applyService = new ApplyService(container);
   container.chatService = new ChatService(container);
 
   return container;

@@ -13,9 +13,20 @@ export function formatProviderError(error: unknown, model: string): Error {
     );
   }
 
-  if (lower.includes('429') || lower.includes('rate limit') || lower.includes('quota')) {
+  if (lower.includes('429') || lower.includes('rate limit') || lower.includes('quota') || lower.includes('resource_exhausted')) {
     return new Error(
       `${model} is rate limited right now. Please wait a moment and try again.`,
+    );
+  }
+
+  if (
+    lower.includes('404') ||
+    lower.includes('not found') ||
+    lower.includes('is not found') ||
+    lower.includes('no longer available')
+  ) {
+    return new Error(
+      `${model} is not available for this API key. Set GEMINI_GENERATION_MODEL to a valid ID such as gemini-3.1-flash-lite or gemini-3-flash-preview, then restart the server.`,
     );
   }
 

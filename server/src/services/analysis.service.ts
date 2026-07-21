@@ -2,6 +2,7 @@ import {
   analysisCompleteEventSchema,
   analysisProgressEventSchema,
   analysisResultSchema,
+  isUrlOnlyJobInput,
   type AnalysisCompleteEvent,
   type AnalysisProgressEvent,
 } from '@matchmind/shared';
@@ -35,6 +36,13 @@ export class AnalysisService {
     const trimmedJobDescription = jobDescription.trim();
     if (!trimmedJobDescription) {
       throw new AppError(400, 'Job description is required');
+    }
+
+    if (isUrlOnlyJobInput(trimmedJobDescription)) {
+      throw new AppError(
+        400,
+        'That looks like a job posting URL, not a job description. Use the job URL field on Home so the posting can be fetched. Never paste only a link as the job description.',
+      );
     }
 
     const provider = await this.container.sessionService.getSessionProvider(sessionId);

@@ -1,22 +1,28 @@
 import type { AIProviderName, ProviderOption } from '@matchmind/shared';
+import { isUrlOnlyJobInput } from '@matchmind/shared';
 import { Button } from 'primereact/button';
+import { InputText } from 'primereact/inputtext';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { CvDropzone } from '../components/CvDropzone';
 import { ProgressStepper } from '../components/ProgressStepper';
 import { ProviderPicker } from '../components/ProviderPicker';
-import { useAnalysis } from '../hooks/useAnalysis';
+import { useMatchPipeline } from '../hooks/useMatchPipeline';
 import { fetchProviders } from '../services/api';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
+  const [jobUrl, setJobUrl] = useState('');
   const [jobDescription, setJobDescription] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [companyUrl, setCompanyUrl] = useState('');
+  const [jdFieldError, setJdFieldError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [provider, setProvider] = useState<AIProviderName>('gemini');
   const [providersError, setProvidersError] = useState<string | null>(null);
-  const { stage, error, isRunning, runAnalysis } = useAnalysis();
+  const { stage, error, isRunning, sessionId, needsCompany, runMatch } = useMatchPipeline();
 
   useEffect(() => {
     let cancelled = false;
@@ -44,19 +50,92 @@ export function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!needsCompany) {
+      return;
+    }
+    if (needsCompany.suggestedCompanyName) {
+      setCompanyName((current) => current || needsCompany.suggestedCompanyName || '');
+    }
+    if (needsCompany.suggestedCompanyUrl) {
+      setCompanyUrl((current) => current || needsCompany.suggestedCompanyUrl || '');
+    }
+    if (needsCompany.jobDescription) {
+      setJobDescription((current) => current || needsCompany.jobDescription || '');
+    }
+  }, [needsCompany]);
+
   const selectedAvailable = providers.find((item) => item.id === provider)?.available ?? false;
-  const canAnalyze = Boolean(
-    file && jobDescription.trim() && selectedAvailable && !isRunning && !providersError,
+  const hasJobInput = Boolean(jobUrl.trim() || jobDescription.trim());
+  const canStart = Boolean(
+    (file || (stage === 'needs_company' && sessionId)) &&
+      hasJobInput &&
+      selectedAvailable &&
+      !isRunning &&
+      !providersError &&
+      (stage !== 'needs_company' || companyName.trim()),
   );
+
+  const handleJobDescriptionChange = (value: string) => {
+    setJobDescription(value);
+    if (isUrlOnlyJobInput(value)) {
+      setJdFieldError(
+        'That looks like a job link. Put it in Job posting URL so we can fetch the posting.',
+      );
+    } else {
+      setJdFieldError(null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    let nextUrl = jobUrl.trim();
+    let nextJd = jobDescription.trim();
+
+    if (isUrlOnlyJobInput(nextJd) && !nextUrl) {
+      nextUrl = nextJd;
+      nextJd = '';
+      setJobUrl(nextUrl);
+      setJobDescription('');
+      setJdFieldError(null);
+    } else if (isUrlOnlyJobInput(nextJd)) {
+      setJdFieldError(
+        'That looks like a job link. Put it in Job posting URL so we can fetch the posting.',
+      );
+      return;
+    }
+
+    const result = await runMatch(
+      file,
+      {
+        ...(nextUrl ? { jobUrl: nextUrl } : {}),
+        ...(nextJd ? { jobDescription: nextJd } : {}),
+        ...(companyName.trim() ? { companyName: companyName.trim() } : {}),
+        ...(companyUrl.trim() ? { companyUrl: companyUrl.trim() } : {}),
+      },
+      provider,
+      stage === 'needs_company' && sessionId ? { reuseSessionId: sessionId } : undefined,
+    );
+
+    if (result) {
+      navigate(`/results/${result.sessionId}`, {
+        state: {
+          apply: result.apply,
+          sessionId: result.sessionId,
+          fileName: file?.name,
+          provider,
+        },
+      });
+    }
+  };
 
   return (
     <AppShell>
       <section className="hero-panel">
-        <p className="eyebrow m-0">Evidence-based analysis</p>
-        <h1 className="hero-title m-0">See how your CV matches the role</h1>
+        <p className="eyebrow m-0">Tailored application package</p>
+        <h1 className="hero-title m-0">Match your CV to a role and draft the application</h1>
         <p className="hero-copy m-0">
-          Upload your CV, paste a job description, and receive an evidence-based match report
-          generated only from the most relevant sections of your CV.
+          Upload your CV, paste a job posting URL or the job description, then get a fit summary,
+          researched company angles, tailored PDF downloads, interview prep, and CV chat.
         </p>
       </section>
 
@@ -65,8 +144,8 @@ export function Dashboard() {
           <div className="workspace-panel__header">
             <h2 className="section-title m-0">1. Upload CV</h2>
             <p className="section-subtitle m-0">
-              PDF or DOCX. We prepare your CV for this analysis and keep it available while you
-              review results.
+              PDF or DOCX. We prepare your CV for this session and keep it available while you review
+              results.
             </p>
           </div>
           <CvDropzone file={file} disabled={isRunning} onFileChange={setFile} />
@@ -74,20 +153,67 @@ export function Dashboard() {
 
         <div className="workspace-panel">
           <div className="workspace-panel__header">
-            <h2 className="section-title m-0">2. Job description</h2>
+            <h2 className="section-title m-0">2. Job posting</h2>
             <p className="section-subtitle m-0">
-              Paste the role requirements you want to match against. Drag the bottom-right corner to
-              resize.
+              Paste a public job URL when possible (including LinkedIn job links). If a board blocks
+              fetch, paste the full description below.
             </p>
           </div>
+
+          <label className="field-label" htmlFor="home-job-url">
+            Job posting URL
+          </label>
+          <InputText
+            id="home-job-url"
+            className="w-full"
+            value={jobUrl}
+            disabled={isRunning}
+            placeholder="https://www.linkedin.com/jobs/view/..."
+            onChange={(event) => setJobUrl(event.target.value)}
+          />
+
+          <label className="field-label mt-3" htmlFor="home-job-description">
+            Or paste job description
+          </label>
           <textarea
+            id="home-job-description"
             value={jobDescription}
-            onChange={(event) => setJobDescription(event.target.value)}
-            rows={10}
+            onChange={(event) => handleJobDescriptionChange(event.target.value)}
+            rows={8}
             disabled={isRunning}
             className="jd-input w-full"
-            placeholder="Example: Looking for a TypeScript developer with React, Node.js, Docker, and cloud experience..."
+            placeholder="Paste the full role text if URL fetch fails..."
           />
+          {jdFieldError && <p className="field-error m-0 mt-2">{jdFieldError}</p>}
+
+          {(stage === 'needs_company' || companyName || companyUrl) && (
+            <div className="mt-3">
+              {needsCompany && (
+                <p className="field-error m-0 mb-2">{needsCompany.message}</p>
+              )}
+              <label className="field-label" htmlFor="home-company-name">
+                Company name
+              </label>
+              <InputText
+                id="home-company-name"
+                className="w-full"
+                value={companyName}
+                disabled={isRunning}
+                onChange={(event) => setCompanyName(event.target.value)}
+              />
+              <label className="field-label mt-3" htmlFor="home-company-url">
+                Company website (optional)
+              </label>
+              <InputText
+                id="home-company-url"
+                className="w-full"
+                value={companyUrl}
+                disabled={isRunning}
+                placeholder="https://..."
+                onChange={(event) => setCompanyUrl(event.target.value)}
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -95,7 +221,8 @@ export function Dashboard() {
         <div className="workspace-panel__header">
           <h2 className="section-title m-0">3. AI provider</h2>
           <p className="section-subtitle m-0">
-            Choose which model family embeds your CV and generates the analysis for this session.
+            Choose which model family embeds your CV and runs the tailored pipeline for this
+            session.
           </p>
         </div>
         {providersError ? (
@@ -114,38 +241,27 @@ export function Dashboard() {
         <div>
           <p className="analyze-bar__title m-0">Ready when you are</p>
           <p className="section-subtitle m-0">
-            Progress advances only when each analysis stage is confirmed.
+            Progress advances only when each pipeline stage is confirmed.
           </p>
         </div>
         <Button
           type="button"
-          label={isRunning ? 'Analyzing...' : 'Analyze match'}
-          icon={isRunning ? 'pi pi-spin pi-spinner' : 'pi pi-chart-bar'}
-          disabled={!canAnalyze}
-          onClick={async () => {
-            if (!file) {
-              return;
-            }
-
-            const result = await runAnalysis(file, jobDescription, provider);
-            if (result) {
-              navigate(`/results/${result.sessionId}`, {
-                state: {
-                  analysis: result.analysis,
-                  retrievedChunkIds: result.retrievedChunkIds,
-                  fileName: file.name,
-                  jobDescription,
-                  provider,
-                },
-              });
-            }
+          label={
+            isRunning
+              ? 'Working…'
+              : stage === 'needs_company'
+                ? 'Continue with company'
+                : 'Generate tailored application'
+          }
+          icon="pi pi-sparkles"
+          disabled={!canStart || Boolean(jdFieldError)}
+          onClick={() => {
+            void handleSubmit();
           }}
         />
       </div>
 
-      {(isRunning || stage === 'error') && (
-        <ProgressStepper stage={stage} error={stage === 'error' ? error : null} />
-      )}
+      <ProgressStepper stage={stage} error={error} />
     </AppShell>
   );
 }

@@ -952,6 +952,38 @@ html {
   border: 1px solid var(--mm-border);
 }
 
+.apply-preview {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin: 0.75rem 0 0;
+  padding: 1rem;
+  border: 1px solid var(--mm-border);
+  border-radius: 16px;
+  background: var(--mm-surface-solid);
+  font-family: var(--mm-font-body);
+  font-size: 0.95rem;
+  overflow-x: auto;
+}
+
+.apply-ats-table {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.apply-ats-row {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.apply-form .field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
 .question-item__index {
   width: 1.8rem;
   height: 1.8rem;

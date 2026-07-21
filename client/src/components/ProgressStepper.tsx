@@ -1,21 +1,24 @@
-import type { ClientPipelineStage } from '../hooks/useAnalysis';
+import type { MatchClientStage } from '../hooks/useMatchPipeline';
 
-const STEPS: Array<{ id: Exclude<ClientPipelineStage, 'idle' | 'error'>; label: string }> = [
-  { id: 'uploading', label: 'Preparing your CV' },
-  { id: 'retrieving', label: 'Finding relevant sections' },
-  { id: 'analyzing', label: 'Building your match report' },
+const STEPS: Array<{ id: Exclude<MatchClientStage, 'idle' | 'error' | 'needs_company'>; label: string }> = [
+  { id: 'uploading', label: 'Prepare CV' },
+  { id: 'fetching_posting', label: 'Fetch posting' },
+  { id: 'retrieving_sections', label: 'Retrieve CV evidence' },
+  { id: 'drafting', label: 'Draft CV + cover letter' },
+  { id: 'researching_company', label: 'Research company' },
+  { id: 'reviewing', label: 'Reviewer critique' },
+  { id: 'revising', label: 'Revise' },
+  { id: 'compiling', label: 'Compile LaTeX' },
+  { id: 'ats_check', label: 'Finalize' },
   { id: 'complete', label: 'Complete' },
 ];
 
-const STAGE_ORDER: Record<Exclude<ClientPipelineStage, 'idle' | 'error'>, number> = {
-  uploading: 0,
-  retrieving: 1,
-  analyzing: 2,
-  complete: 3,
-};
+const STAGE_ORDER = Object.fromEntries(
+  STEPS.map((step, index) => [step.id, index]),
+) as Record<(typeof STEPS)[number]['id'], number>;
 
 interface ProgressStepperProps {
-  stage: ClientPipelineStage;
+  stage: MatchClientStage;
   error?: string | null;
 }
 
@@ -24,18 +27,23 @@ export function ProgressStepper({ stage, error }: ProgressStepperProps) {
     return null;
   }
 
-  const activeIndex = stage === 'error' ? -1 : STAGE_ORDER[stage];
+  const activeIndex =
+    stage === 'error' || stage === 'needs_company'
+      ? -1
+      : (STAGE_ORDER[stage as (typeof STEPS)[number]['id']] ?? -1);
 
   return (
     <section className="progress-panel" aria-live="polite">
       <div className="progress-panel__header">
-        <h2 className="section-title m-0">Analysis progress</h2>
+        <h2 className="section-title m-0">Application progress</h2>
         <p className="section-subtitle m-0">
           {stage === 'error'
             ? 'Something went wrong'
-            : stage === 'complete'
-              ? 'Your results are ready'
-              : 'Each stage advances only when it is confirmed'}
+            : stage === 'needs_company'
+              ? 'Company name needed to continue'
+              : stage === 'complete'
+                ? 'Your tailored package is ready'
+                : 'Each stage advances only when it is confirmed'}
         </p>
       </div>
 

@@ -5,10 +5,10 @@ export function HowItWorks() {
     <AppShell>
       <section className="hero-panel">
         <p className="eyebrow m-0">How It Works</p>
-        <h1 className="hero-title hero-title--compact m-0">From upload to match report</h1>
+        <h1 className="hero-title hero-title--compact m-0">From upload to tailored package</h1>
         <p className="hero-copy m-0">
-          MatchMind compares your CV to a job description using only the most relevant sections of
-          your experience. That keeps the report focused and reduces invented details.
+          MatchMind fetches or accepts a job posting, retrieves only the most relevant CV sections,
+          then drafts, reviews, and compiles a tailored application package.
         </p>
       </section>
 
@@ -17,24 +17,25 @@ export function HowItWorks() {
           <h2 className="section-title m-0">Simple overview</h2>
           <ol className="plain-steps">
             <li>
-              <strong>Upload your CV.</strong> We prepare it for this analysis session and keep it
-              available while you review results.
+              <strong>Upload your CV.</strong> We prepare it for this session and keep it available
+              while you review results.
             </li>
             <li>
-              <strong>Paste a job description.</strong> This becomes the target role we compare
-              against.
+              <strong>Add a job URL or paste the job description.</strong> A bare URL is fetched as a
+              posting. It is never treated as job-description text by itself.
             </li>
             <li>
-              <strong>Choose an AI provider.</strong> Gemini or OpenAI embeds your CV and generates
-              the report for that session.
+              <strong>Choose an AI provider.</strong> Gemini or OpenAI embeds your CV and runs the
+              tailored pipeline for that session.
             </li>
             <li>
-              <strong>Find the best-matching sections.</strong> Instead of sending your whole CV to
-              the AI, MatchMind pulls out the parts that best match the role.
+              <strong>Retrieve evidence and evaluate fit.</strong> MatchMind pulls the CV sections
+              that best match the role, then scores strengths and gaps honestly.
             </li>
             <li>
-              <strong>Generate your report.</strong> You get a match score, strengths, gaps, CV
-              rewrite ideas, a cover letter draft, and interview practice questions.
+              <strong>Draft, research, review, and compile.</strong> You get tailored CV and cover
+              letter PDFs, company research when available, interview prep, and a CV chat grounded
+              in the same evidence.
             </li>
           </ol>
         </article>
@@ -43,8 +44,8 @@ export function HowItWorks() {
           <h2 className="section-title m-0">Why this approach?</h2>
           <p className="section-subtitle m-0 line-height-3">
             Sending an entire CV into an AI model can waste context and encourage guesses. By
-            focusing on the most relevant sections first, MatchMind stays closer to what is actually
-            written in your CV.
+            focusing on the most relevant sections first, and by fetching real posting text from a
+            job URL, MatchMind stays closer to evidence and avoids matching against a link string.
           </p>
         </article>
 
@@ -59,12 +60,17 @@ export function HowItWorks() {
               embeddings, and storage in a session-scoped Chroma collection.
             </li>
             <li>
-              <strong>Retrieval:</strong> The job description is embedded with the same provider and
-              used for Top-K semantic search against that session collection.
+              <strong>Posting resolve:</strong> Job URLs are fetched with SSRF protections. URL-only
+              JD fields are promoted to URL fetch or rejected, never used as prose.
             </li>
             <li>
-              <strong>Generation:</strong> Only retrieved chunks plus the job description are sent
-              to the selected provider for structured JSON analysis.
+              <strong>Retrieval:</strong> Multi-section Top-K search against the session collection,
+              capped for the apply pipeline.
+            </li>
+            <li>
+              <strong>Generation:</strong> Fit summary, drafter/reviewer passes, optional company
+              research (Tavily), moderncv LaTeX compile to PDF, interview questions, and an
+              internal keyword coverage check.
             </li>
             <li>
               <strong>Validation:</strong> Responses are checked with Zod schemas, with retry on

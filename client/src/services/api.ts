@@ -1,12 +1,19 @@
 import {
   analysisCompleteEventSchema,
   analysisProgressEventSchema,
+  applyCompleteEventSchema,
+  applyNeedsCompanyEventSchema,
+  applyProgressEventSchema,
   chatResponseSchema,
   createSessionResponseSchema,
   providersResponseSchema,
   type AIProviderName,
   type AnalysisCompleteEvent,
   type AnalysisProgressEvent,
+  type ApplyCompleteEvent,
+  type ApplyNeedsCompanyEvent,
+  type ApplyProgressEvent,
+  type ApplyRequest,
   type ChatMessage,
   type ChatResponse,
   type CreateSessionResponse,
@@ -154,6 +161,98 @@ export async function analyzeSession(
   }
 
   return complete;
+}
+
+export type ApplySessionHandlers = {
+  onProgress: (event: ApplyProgressEvent) => void;
+  onNeedsCompany: (event: ApplyNeedsCompanyEvent) => void;
+};
+
+export async function applySession(
+  sessionId: string,
+  request: ApplyRequest,
+  handlers: ApplySessionHandlers,
+  signal?: AbortSignal,
+): Promise<ApplyCompleteEvent | null> {
+  const response = await fetch(`/api/sessions/${sessionId}/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  if (!response.body) {
+    throw new Error('Apply stream was empty');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let complete: ApplyCompleteEvent | null = null;
+  let needsCompany = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split('\n\n');
+    buffer = blocks.pop() ?? '';
+
+    for (const block of blocks) {
+      const parsed = parseSseBlock(block.trim());
+      if (!parsed) {
+        continue;
+      }
+
+      const payload: unknown = JSON.parse(parsed.data);
+
+      if (parsed.event === 'progress') {
+        handlers.onProgress(applyProgressEventSchema.parse(payload));
+        continue;
+      }
+
+      if (parsed.event === 'complete') {
+        complete = applyCompleteEventSchema.parse(payload);
+        handlers.onProgress(applyProgressEventSchema.parse({ stage: 'complete' }));
+        continue;
+      }
+
+      if (parsed.event === 'needs_company') {
+        needsCompany = true;
+        handlers.onNeedsCompany(applyNeedsCompanyEventSchema.parse(payload));
+        continue;
+      }
+
+      if (parsed.event === 'error') {
+        const errorEvent = applyProgressEventSchema.parse(payload);
+        throw new Error(errorEvent.message ?? 'Apply pipeline failed');
+      }
+    }
+  }
+
+  if (needsCompany) {
+    return null;
+  }
+
+  if (!complete) {
+    throw new Error('Apply ended without a complete event');
+  }
+
+  return complete;
+}
+
+export function applyDownloadUrl(
+  sessionId: string,
+  kind: 'cv.pdf' | 'cover-letter.pdf' | 'sources.zip',
+): string {
+  return `/api/sessions/${sessionId}/apply/download/${kind}`;
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

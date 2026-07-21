@@ -23,6 +23,8 @@ const envSchema = z
     OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
     CHAT_HISTORY_TURNS: z.coerce.number().int().positive().max(20).default(6),
     AI_PROVIDER: z.enum(['gemini', 'openai']).default('gemini'),
+    APPLY_MAX_CHUNKS: z.coerce.number().int().positive().default(20),
+    TAVILY_API_KEY: optionalApiKey,
     LOG_LEVEL: z.string().optional(),
   })
   .superRefine((value, ctx) => {

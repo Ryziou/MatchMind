@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   analyzeSessionRequestSchema,
+  applyRequestSchema,
   chatRequestSchema,
   sessionIdParamsSchema,
   sessionQueryRequestSchema,
@@ -10,6 +11,7 @@ import {
   mapUploadError,
 } from '../controllers/session.controller.js';
 import { createAnalysisController } from '../controllers/analysis.controller.js';
+import { createApplyController } from '../controllers/apply.controller.js';
 import { createChatController } from '../controllers/chat.controller.js';
 import { createUploadMiddleware } from '../middleware/upload.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
@@ -19,6 +21,7 @@ export function createSessionRouter(container: AppContainer): Router {
   const router = Router();
   const controller = createSessionController(container);
   const analysisController = createAnalysisController(container);
+  const applyController = createApplyController(container);
   const chatController = createChatController(container);
   const upload = createUploadMiddleware(container.env);
   const requireSessionId = validateParams(sessionIdParamsSchema);
@@ -47,6 +50,27 @@ export function createSessionRouter(container: AppContainer): Router {
     requireSessionId,
     validateBody(analyzeSessionRequestSchema),
     analysisController.analyzeSession,
+  );
+  router.post(
+    '/sessions/:sessionId/apply',
+    requireSessionId,
+    validateBody(applyRequestSchema),
+    applyController.applySession,
+  );
+  router.get(
+    '/sessions/:sessionId/apply/download/cv.pdf',
+    requireSessionId,
+    applyController.downloadCvPdf,
+  );
+  router.get(
+    '/sessions/:sessionId/apply/download/cover-letter.pdf',
+    requireSessionId,
+    applyController.downloadCoverPdf,
+  );
+  router.get(
+    '/sessions/:sessionId/apply/download/sources.zip',
+    requireSessionId,
+    applyController.downloadSourcesZip,
   );
   router.post(
     '/sessions/:sessionId/chat',

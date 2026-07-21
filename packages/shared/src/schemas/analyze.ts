@@ -1,9 +1,21 @@
 import { z } from 'zod';
 import { analysisResultSchema } from './analysis.js';
+import { isUrlOnlyJobInput } from '../jobInput.js';
 
-export const analyzeSessionRequestSchema = z.object({
-  jobDescription: z.string().trim().min(1, 'Job description is required'),
-});
+export const analyzeSessionRequestSchema = z
+  .object({
+    jobDescription: z.string().trim().min(1, 'Job description is required'),
+  })
+  .superRefine((value, ctx) => {
+    if (isUrlOnlyJobInput(value.jobDescription)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'That looks like a job posting URL, not a job description. Use the job URL field (or the Apply pipeline) so the posting can be fetched. Never paste only a link as the job description.',
+        path: ['jobDescription'],
+      });
+    }
+  });
 
 export const analysisProgressStageSchema = z.enum([
   'retrieving',
